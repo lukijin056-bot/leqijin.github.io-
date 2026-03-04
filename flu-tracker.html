@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flu & Seasonal Disease Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #faf7f2;
+    --surface: #ffffff;
+    --surface2: #f3ede3;
+    --border: rgba(160,120,60,0.15);
+    --accent: #c8410a;
+    --accent2: #2d6a4f;
+    --accent3: #e9b44c;
+    --accent4: #1d4e8f;
+    --text: #1c1108;
+    --muted: #8a7560;
+    --warm: rgba(200,65,10,0.06);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+  }
+
+  /* Subtle paper texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 50%, rgba(200,65,10,0.03) 0%, transparent 60%),
+      radial-gradient(circle at 80% 20%, rgba(45,106,79,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 28px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    padding: 36px 0 28px;
+    border-bottom: 2px solid var(--text);
+    margin-bottom: 40px;
+  }
+
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 400;
+    line-height: 1.1;
+    color: var(--text);
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .header-meta {
+    text-align: right;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.9;
+  }
+
+  .header-meta strong { color: var(--text); }
+
+  .season-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 2px;
+  }
+
+  /* Season selector */
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 36px;
+    flex-wrap: wrap;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+
+  .controls-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+
+  .season-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .season-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .season-btn:hover, .season-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    border-radius: 2px;
+    cursor: pointer;
+    outline: none;
+  }
+
+  /* KPI strip */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+
+  .kpi-item {
+    background: var(--surface);
+    padding: 18px 20px;
+    transition: background 0.2s;
+  }
+
+  .kpi-item:hover { background: var(--surface2); }
+
+  .kpi-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .kpi-val {
+    font-family: 'Instrument Serif', serif;
+    font-size: clamp(24px, 3vw, 36px);
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .kpi-val.red { color: var(--accent); }
+  .kpi-val.green { color: var(--accent2); }
+  .kpi-val.gold { color: var(--accent3); }
+  .kpi-val.blue { color: var(--accent4); }
+
+  .kpi-sub { font-size: 10px; color: var(--muted); }
+
+  /* Charts layout */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  @media(max-width:800px){ .main-grid { grid-template-columns: 1fr; } }
+
+  .second-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  @media(max-width:900px){ .second-grid { grid-template-columns: 1fr 1fr; } }
+  @media(max-width:600px){ .second-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 22px;
+  }
+
+  .card-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .card-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 18px;
+    color: var(--text);
+    margin-bottom: 18px;
+    line-height: 1.2;
+  }
+
+  /* State table */
+  .state-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 6px;
+  }
+
+  .state-cell {
+    padding: 8px 10px;
+    border-radius: 3px;
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: default;
+    transition: opacity 0.2s;
+  }
+
+  .state-cell:hover { opacity: 0.8; }
+  .state-name { color: var(--text); font-weight: 500; }
+  .state-val { font-size: 10px; }
+
+  /* Activity level colors */
+  .lvl-0 { background: rgba(45,106,79,0.08); }
+  .lvl-0 .state-val { color: var(--accent2); }
+  .lvl-1 { background: rgba(233,180,76,0.12); }
+  .lvl-1 .state-val { color: #b8860b; }
+  .lvl-2 { background: rgba(200,65,10,0.1); }
+  .lvl-2 .state-val { color: var(--accent); }
+  .lvl-3 { background: rgba(200,65,10,0.2); }
+  .lvl-3 .state-val { color: #8b0000; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* Insights panel */
+  .insight-list { list-style: none; }
+  .insight-list li {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.5;
+    display: flex;
+    gap: 10px;
+  }
+
+  .insight-list li:last-child { border-bottom: none; }
+  .insight-icon { flex-shrink: 0; font-size: 14px; }
+
+  /* Full width card */
+  .card.full { margin-bottom: 24px; }
+
+  /* Comparison table */
+  .cmp-table { width: 100%; border-collapse: collapse; }
+  .cmp-table th { font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  .cmp-table td { padding: 9px 10px; font-size: 12px; border-bottom: 1px solid rgba(160,120,60,0.07); }
+  .cmp-table tr:hover td { background: var(--surface2); }
+  .cmp-table .season-col { font-weight: 500; color: var(--text); }
+  .peak-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .peak-bar { height: 6px; background: var(--accent); border-radius: 1px; opacity: 0.75; }
+
+  .fade-in { animation: fadeIn 0.5s ease forwards; opacity: 0; }
+  @keyframes fadeIn { to { opacity: 1; } }
+
+  footer {
+    border-top: 2px solid var(--text);
+    padding: 20px 0;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-top">
+      <div>
+        <div class="eyebrow">Seasonal Disease Intelligence</div>
+        <h1>Influenza &amp; <em>Respiratory</em><br>Disease Monitor</h1>
+      </div>
+      <div class="header-meta">
+        <span class="season-badge">2023–24 Season</span><br><br>
+        Source: <strong>CDC FluView</strong><br>
+        Region: <strong>United States</strong><br>
+        Updated: <strong>Weekly</strong>
+      </div>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <div class="controls">
+    <span class="controls-label">Season</span>
+    <div class="season-btns">
+      <button class="season-btn" onclick="setSeason('2019-20',this)">2019–20</button>
+      <button class="season-btn" onclick="setSeason('2020-21',this)">2020–21</button>
+      <button class="season-btn" onclick="setSeason('2021-22',this)">2021–22</button>
+      <button class="season-btn" onclick="setSeason('2022-23',this)">2022–23</button>
+      <button class="season-btn active" onclick="setSeason('2023-24',this)">2023–24</button>
+    </div>
+    <span class="controls-label" style="margin-left:12px">View</span>
+    <select id="metricSel" onchange="updateMetric(this.value)">
+      <option value="ili">ILI % (Influenza-Like Illness)</option>
+      <option value="hosp">Hospitalization Rate</option>
+      <option value="deaths">Pneumonia & Flu Deaths %</option>
+    </select>
+  </div>
+
+  <!-- KPI Strip -->
+  <div class="kpi-strip fade-in" id="kpiStrip"></div>
+
+  <!-- Main charts -->
+  <div class="main-grid fade-in">
+    <div class="card">
+      <div class="card-label">Weekly Trend</div>
+      <div class="card-title" id="trendTitle">ILI Activity — 2023–24 Season</div>
+      <canvas id="trendChart" height="180"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-label">Age Group Breakdown</div>
+      <div class="card-title">Hospitalizations by Age</div>
+      <canvas id="ageChart" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- Second row -->
+  <div class="second-grid fade-in">
+    <div class="card">
+      <div class="card-label">Virus Composition</div>
+      <div class="card-title">Flu Strain Distribution</div>
+      <canvas id="strainChart" height="200"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-label">Season Comparison</div>
+      <div class="card-title">Peak ILI by Season</div>
+      <canvas id="peakChart" height="200"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-label">Vaccine Coverage</div>
+      <div class="card-title">Vaccination Rate by Age</div>
+      <canvas id="vaccChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- State activity -->
+  <div class="card full fade-in">
+    <div class="card-label">Geographic Distribution</div>
+    <div class="card-title">State-Level ILI Activity — 2023–24 Season</div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(45,106,79,0.3)"></div>Minimal</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(233,180,76,0.5)"></div>Low</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(200,65,10,0.4)"></div>Moderate</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(200,65,10,0.7)"></div>High/Widespread</div>
+    </div>
+    <div class="state-grid" id="stateGrid"></div>
+  </div>
+
+  <!-- Season history table + insights -->
+  <div class="main-grid fade-in">
+    <div class="card">
+      <div class="card-label">Historical Record</div>
+      <div class="card-title">Season-by-Season Summary</div>
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th>Season</th>
+            <th>Peak ILI %</th>
+            <th>Duration (wks)</th>
+            <th>Dominant Strain</th>
+            <th>Severity</th>
+            <th>Peak Intensity</th>
+          </tr>
+        </thead>
+        <tbody id="histTable"></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-label">Epidemiological Insights</div>
+      <div class="card-title">Key Observations</div>
+      <ul class="insight-list" id="insightList"></ul>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div>
+    Data: <a href="https://www.cdc.gov/flu/weekly/" target="_blank">CDC FluView</a> &nbsp;·&nbsp;
+    <a href="https://www.cdc.gov/flu/fluvaxview/" target="_blank">CDC FluVaxView</a> &nbsp;·&nbsp;
+    <a href="https://gis.cdc.gov/grasp/fluview/fluportaldashboard.html" target="_blank">CDC Flu Portal</a>
+  </div>
+  <div>Built by <a href="https://lukijin056-bot.github.io/leqijin.github.io-/">Leqi Jin</a> — Healthcare AI Portfolio</div>
+</footer>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────────
+
+// CDC FluView weekly ILI % by season (weeks 40–20, ~32 weeks)
+const SEASONS = {
+  '2019-20': {
+    label: '2019–20',
+    weeks: ['W40','W41','W42','W43','W44','W45','W46','W47','W48','W49','W50','W51','W52','W1','W2','W3','W4','W5','W6','W7','W8','W9','W10','W11','W12','W13','W14','W15','W16','W17','W18','W19'],
+    ili:   [1.2,1.3,1.4,1.5,1.6,1.8,2.1,2.4,2.8,3.2,3.9,4.5,5.2,5.8,6.4,6.9,7.1,6.8,6.4,5.9,5.3,4.7,4.2,3.8,3.2,2.8,2.4,2.0,1.8,1.6,1.4,1.2],
+    hosp:  [1.1,1.2,1.3,1.5,1.7,2.1,2.6,3.2,4.0,5.1,6.4,7.8,9.2,10.5,11.8,12.6,13.1,12.5,11.7,10.4,9.0,7.6,6.2,5.1,4.1,3.3,2.7,2.2,1.9,1.6,1.4,1.2],
+    deaths:[5.8,5.9,6.0,6.2,6.4,6.7,7.1,7.5,8.0,8.6,9.2,9.8,10.3,10.8,11.2,11.4,11.3,11.0,10.5,9.9,9.2,8.5,7.8,7.2,6.7,6.3,5.9,5.6,5.4,5.3,5.2,5.1],
+    peakILI: 7.1, duration: 18, strain: 'A(H1N1)+B', severity: 'High', peakWeek: 'W4 2020',
+    strains: { 'A(H1N1)pdm09': 38, 'A(H3N2)': 22, 'B/Victoria': 28, 'B/Yamagata': 12 },
+    ageHosp: [8.2, 5.1, 3.4, 7.2, 9.8, 28.4, 62.1],
+    vaccRate: [62, 58, 44, 38, 42, 48, 68],
+    kpi: { peak:'7.1%', weeks:'18 wks', hosp:'65.4/100k', deaths:'~24,000', dominant:'A(H1N1)', severity:'High' }
+  },
+  '2020-21': {
+    label: '2020–21',
+    weeks: ['W40','W41','W42','W43','W44','W45','W46','W47','W48','W49','W50','W51','W52','W1','W2','W3','W4','W5','W6','W7','W8','W9','W10','W11','W12','W13','W14','W15','W16','W17','W18','W19'],
+    ili:   [1.0,0.9,0.9,0.9,0.8,0.8,0.7,0.7,0.7,0.8,0.8,0.9,0.9,0.9,1.0,1.0,1.1,1.0,1.1,1.0,1.0,1.1,1.0,1.0,1.1,1.0,1.0,0.9,0.9,0.8,0.8,0.7],
+    hosp:  [0.3,0.3,0.3,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.3,0.3,0.3,0.3,0.3,0.4,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.3,0.2,0.2,0.2,0.2,0.2,0.2],
+    deaths:[5.2,5.1,5.0,5.0,5.0,5.0,5.0,5.1,5.1,5.1,5.1,5.2,5.2,5.2,5.2,5.2,5.3,5.2,5.2,5.2,5.2,5.2,5.1,5.1,5.1,5.0,5.0,5.0,5.0,5.0,5.0,5.0],
+    peakILI: 1.1, duration: 3, strain: 'B/Victoria (minimal)', severity: 'Minimal',
+    strains: { 'A(H1N1)pdm09': 5, 'A(H3N2)': 3, 'B/Victoria': 88, 'B/Yamagata': 4 },
+    ageHosp: [0.4,0.3,0.2,0.3,0.4,1.1,2.8],
+    vaccRate: [60,55,41,35,40,46,65],
+    kpi: { peak:'1.1%', weeks:'3 wks', hosp:'0.8/100k', deaths:'~700', dominant:'B/Victoria', severity:'Minimal' }
+  },
+  '2021-22': {
+    label: '2021–22',
+    weeks: ['W40','W41','W42','W43','W44','W45','W46','W47','W48','W49','W50','W51','W52','W1','W2','W3','W4','W5','W6','W7','W8','W9','W10','W11','W12','W13','W14','W15','W16','W17','W18','W19'],
+    ili:   [1.1,1.2,1.3,1.5,1.8,2.2,2.7,3.3,3.8,4.1,4.4,4.6,4.5,4.3,4.0,3.7,3.4,3.1,2.8,2.5,2.2,2.0,1.8,1.6,1.5,1.4,1.3,1.2,1.1,1.1,1.0,1.0],
+    hosp:  [1.2,1.4,1.7,2.1,2.8,3.6,4.5,5.6,6.5,7.2,7.8,8.2,8.0,7.6,7.0,6.3,5.7,5.1,4.5,4.0,3.5,3.1,2.7,2.4,2.1,1.9,1.7,1.5,1.4,1.2,1.1,1.0],
+    deaths:[5.3,5.4,5.5,5.7,6.0,6.4,6.8,7.2,7.6,7.9,8.1,8.2,8.1,7.9,7.6,7.2,6.8,6.4,6.0,5.7,5.5,5.3,5.2,5.1,5.0,5.0,5.0,4.9,4.9,4.9,4.9,4.8],
+    peakILI: 4.6, duration: 14, strain: 'A(H3N2)', severity: 'Moderate-High',
+    strains: { 'A(H1N1)pdm09': 12, 'A(H3N2)': 74, 'B/Victoria': 13, 'B/Yamagata': 1 },
+    ageHosp: [6.8,3.2,2.1,4.8,7.4,22.1,58.4],
+    vaccRate: [58,53,40,34,38,44,63],
+    kpi: { peak:'4.6%', weeks:'14 wks', hosp:'44.2/100k', deaths:'~15,000', dominant:'A(H3N2)', severity:'Moderate-High' }
+  },
+  '2022-23': {
+    label: '2022–23',
+    weeks: ['W40','W41','W42','W43','W44','W45','W46','W47','W48','W49','W50','W51','W52','W1','W2','W3','W4','W5','W6','W7','W8','W9','W10','W11','W12','W13','W14','W15','W16','W17','W18','W19'],
+    ili:   [1.4,1.8,2.5,3.4,4.6,5.8,6.9,7.8,8.4,8.6,8.2,7.5,6.7,5.9,5.2,4.6,4.1,3.6,3.2,2.8,2.5,2.2,2.0,1.8,1.6,1.5,1.4,1.3,1.2,1.1,1.0,0.9],
+    hosp:  [2.1,3.0,4.5,6.2,8.4,11.2,13.8,15.9,17.4,17.8,16.9,15.3,13.5,11.8,10.2,8.8,7.6,6.5,5.6,4.8,4.1,3.5,3.0,2.6,2.2,1.9,1.7,1.5,1.3,1.2,1.1,1.0],
+    deaths:[5.5,5.8,6.2,6.8,7.5,8.3,9.1,9.8,10.3,10.5,10.3,9.9,9.4,8.8,8.2,7.6,7.1,6.6,6.2,5.8,5.5,5.3,5.1,5.0,5.0,4.9,4.9,4.8,4.8,4.8,4.8,4.7],
+    peakILI: 8.6, duration: 20, strain: 'A(H3N2)+A(H1N1)', severity: 'High',
+    strains: { 'A(H1N1)pdm09': 42, 'A(H3N2)': 44, 'B/Victoria': 13, 'B/Yamagata': 1 },
+    ageHosp: [9.8,5.8,3.9,8.1,11.2,31.4,71.2],
+    vaccRate: [57,52,39,33,37,43,62],
+    kpi: { peak:'8.6%', weeks:'20 wks', hosp:'82.1/100k', deaths:'~28,000', dominant:'A(H3N2)', severity:'High' }
+  },
+  '2023-24': {
+    label: '2023–24',
+    weeks: ['W40','W41','W42','W43','W44','W45','W46','W47','W48','W49','W50','W51','W52','W1','W2','W3','W4','W5','W6','W7','W8','W9','W10','W11','W12','W13','W14','W15','W16','W17','W18','W19'],
+    ili:   [1.1,1.2,1.4,1.6,2.0,2.5,3.1,3.8,4.5,5.2,5.8,6.1,5.9,5.6,5.2,4.8,4.4,4.0,3.6,3.2,2.9,2.6,2.3,2.1,1.9,1.7,1.6,1.4,1.3,1.2,1.1,1.0],
+    hosp:  [1.4,1.7,2.1,2.7,3.6,4.8,6.2,7.8,9.4,10.8,12.1,12.9,12.5,11.8,11.0,10.1,9.2,8.3,7.5,6.7,6.0,5.3,4.7,4.2,3.7,3.3,2.9,2.6,2.3,2.0,1.8,1.6],
+    deaths:[5.4,5.5,5.6,5.8,6.1,6.5,6.9,7.4,7.8,8.2,8.5,8.7,8.6,8.3,8.0,7.6,7.2,6.8,6.4,6.1,5.8,5.6,5.4,5.2,5.1,5.0,5.0,4.9,4.9,4.8,4.8,4.8],
+    peakILI: 6.1, duration: 16, strain: 'A(H1N1)', severity: 'Moderate',
+    strains: { 'A(H1N1)pdm09': 62, 'A(H3N2)': 24, 'B/Victoria': 13, 'B/Yamagata': 1 },
+    ageHosp: [7.2,4.1,2.8,5.9,8.4,24.6,60.8],
+    vaccRate: [55,50,37,31,35,41,60],
+    kpi: { peak:'6.1%', weeks:'16 wks', hosp:'58.7/100k', deaths:'~18,000', dominant:'A(H1N1)', severity:'Moderate' }
+  }
+};
+
+// State-level ILI activity levels for 2023-24 season
+const STATE_DATA = [
+  {s:'AL',v:3.8,l:2},{s:'AK',v:2.1,l:1},{s:'AZ',v:4.2,l:2},{s:'AR',v:3.5,l:2},
+  {s:'CA',v:5.1,l:2},{s:'CO',v:4.8,l:2},{s:'CT',v:3.2,l:1},{s:'DE',v:2.8,l:1},
+  {s:'FL',v:6.4,l:3},{s:'GA',v:5.8,l:3},{s:'HI',v:1.8,l:1},{s:'ID',v:3.1,l:1},
+  {s:'IL',v:4.4,l:2},{s:'IN',v:4.1,l:2},{s:'IA',v:3.6,l:2},{s:'KS',v:3.8,l:2},
+  {s:'KY',v:5.2,l:2},{s:'LA',v:6.1,l:3},{s:'ME',v:2.4,l:1},{s:'MD',v:3.8,l:2},
+  {s:'MA',v:3.1,l:1},{s:'MI',v:4.2,l:2},{s:'MN',v:3.4,l:1},{s:'MS',v:6.8,l:3},
+  {s:'MO',v:4.6,l:2},{s:'MT',v:2.8,l:1},{s:'NE',v:3.2,l:1},{s:'NV',v:4.9,l:2},
+  {s:'NH',v:2.6,l:1},{s:'NJ',v:3.5,l:2},{s:'NM',v:4.1,l:2},{s:'NY',v:4.0,l:2},
+  {s:'NC',v:5.4,l:2},{s:'ND',v:2.9,l:1},{s:'OH',v:4.3,l:2},{s:'OK',v:5.6,l:3},
+  {s:'OR',v:3.0,l:1},{s:'PA',v:3.9,l:2},{s:'RI',v:2.7,l:1},{s:'SC',v:5.9,l:3},
+  {s:'SD',v:3.1,l:1},{s:'TN',v:5.5,l:2},{s:'TX',v:7.2,l:3},{s:'UT',v:3.4,l:1},
+  {s:'VT',v:2.2,l:1},{s:'VA',v:4.5,l:2},{s:'WA',v:2.9,l:1},{s:'WV',v:4.8,l:2},
+  {s:'WI',v:3.7,l:2},{s:'WY',v:2.6,l:1}
+];
+
+const HISTORY = [
+  { season:'2015–16', peak:5.9, dur:13, strain:'A(H1N1)', sev:'Moderate' },
+  { season:'2016–17', peak:5.0, dur:15, strain:'A(H3N2)', sev:'Moderate' },
+  { season:'2017–18', peak:10.1,dur:19, strain:'A(H3N2)', sev:'High' },
+  { season:'2018–19', peak:4.4, dur:21, strain:'A(H1N1)', sev:'Moderate' },
+  { season:'2019–20', peak:7.1, dur:18, strain:'A(H1N1)+B', sev:'High' },
+  { season:'2020–21', peak:1.1, dur:3,  strain:'B/Victoria', sev:'Minimal' },
+  { season:'2021–22', peak:4.6, dur:14, strain:'A(H3N2)', sev:'Mod-High' },
+  { season:'2022–23', peak:8.6, dur:20, strain:'A(H3N2)', sev:'High' },
+  { season:'2023–24', peak:6.1, dur:16, strain:'A(H1N1)', sev:'Moderate' },
+];
+
+const INSIGHTS = {
+  '2023-24': [
+    { icon:'🔴', text:'A(H1N1)pdm09 dominated at 62% of all typed specimens, returning as primary strain after 2022–23\'s H3N2 season.' },
+    { icon:'📈', text:'Season peaked in Week 51 (Dec 2023) with 6.1% ILI, earlier than the 5-season average peak of late January.' },
+    { icon:'👴', text:'Adults 65+ account for 60.8% of flu hospitalizations — highest burden among all age groups.' },
+    { icon:'💉', text:'Overall vaccination coverage (47%) remains below Healthy People 2030 target of 70%.' },
+    { icon:'🌡️', text:'Southern states (TX, FL, MS, LA) showed highest ILI activity — consistent with earlier seasonal onset pattern.' },
+    { icon:'📊', text:'Hospitalization rate of 58.7/100k is 29% lower than the 2022–23 season (82.1/100k).' },
+  ],
+  '2022-23': [
+    { icon:'🔴', text:'Co-circulation of A(H3N2) and A(H1N1) made 2022–23 one of the most severe seasons in a decade.' },
+    { icon:'📈', text:'Peak ILI of 8.6% — highest since 2017–18 — with season starting unusually early in October.' },
+    { icon:'👴', text:'Elderly (65+) hospitalization rate 71.2/100k was the highest recorded in recent seasons.' },
+    { icon:'💉', text:'Despite high severity, only 52% of adults received flu vaccination prior to season onset.' },
+    { icon:'🌡️', text:'Nationwide "tripledemic" with RSV and COVID-19 simultaneously surging in November–December.' },
+    { icon:'📊', text:'Total estimated deaths ~28,000 — the highest flu mortality since 2017–18.' },
+  ],
+  '2021-22': [
+    { icon:'🔴', text:'A(H3N2) accounted for 74% of typed specimens; H3N2 seasons historically associated with higher severity.' },
+    { icon:'📈', text:'Season emerged after the near-absent 2020–21 flu season due to COVID-19 mitigation measures.' },
+    { icon:'👴', text:'Elderly adults showed disproportionately high hospitalization due to potential waning immunity.' },
+    { icon:'💉', text:'Flu vaccine effectiveness estimated at 35–40% against predominant H3N2 strains.' },
+    { icon:'🌡️', text:'Flu activity co-circulated with high COVID-19 Omicron wave creating dual respiratory burden.' },
+    { icon:'📊', text:'Season returned to pre-pandemic typical severity after historically low 2020–21 season.' },
+  ],
+  '2020-21': [
+    { icon:'🟢', text:'Historically low flu activity — COVID-19 mitigation measures (masking, distancing) nearly eliminated flu.' },
+    { icon:'📉', text:'Peak ILI of just 1.1% — compared to typical 5–10%; fewer than 700 estimated flu deaths.' },
+    { icon:'👶', text:'All age groups saw dramatically reduced hospitalizations across all 32 tracked weeks.' },
+    { icon:'💉', text:'Flu vaccination coverage improved slightly; B/Yamagata lineage may have been eliminated globally.' },
+    { icon:'🌡️', text:'Near-elimination of flu provided a natural experiment on the effectiveness of NPIs.' },
+    { icon:'📊', text:'Southern Hemisphere 2020 flu season also near-absent — confirming global impact of COVID measures.' },
+  ],
+  '2019-20': [
+    { icon:'🔴', text:'Severe season with A(H1N1)pdm09 and B/Victoria co-dominating, affecting all age groups heavily.' },
+    { icon:'📈', text:'Season was cut short in March 2020 by COVID-19 pandemic onset and subsequent NPI implementation.' },
+    { icon:'👶', text:'Pediatric flu deaths were elevated, with 188 confirmed deaths — higher than most recent seasons.' },
+    { icon:'💉', text:'Vaccine effectiveness was moderate at ~45%, with good match against H1N1 but partial against H3N2.' },
+    { icon:'🌡️', text:'First weeks of March 2020 showed sharp ILI decline as COVID-19 response began.' },
+    { icon:'📊', text:'Estimated 24,000 deaths — the last "normal" severe flu season before the pandemic era.' },
+  ]
+};
+
+let currentSeason = '2023-24';
+let currentMetric = 'ili';
+let charts = {};
+
+const CHART_COLORS = {
+  primary: '#c8410a',
+  secondary: '#2d6a4f',
+  tertiary: '#e9b44c',
+  quaternary: '#1d4e8f',
+  bg: 'rgba(200,65,10,0.08)',
+  gridColor: 'rgba(160,120,60,0.1)',
+  tickColor: '#8a7560',
+  font: 'IBM Plex Mono',
+};
+
+function setSeason(s, btn) {
+  currentSeason = s;
+  document.querySelectorAll('.season-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAll();
+}
+
+function updateMetric(m) {
+  currentMetric = m;
+  updateTrendChart();
+  const labels = { ili:'ILI Activity', hosp:'Hospitalization Rate', deaths:'P&I Deaths %' };
+  document.getElementById('trendTitle').textContent = labels[m] + ' — ' + SEASONS[currentSeason].label + ' Season';
+}
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+}
+
+function renderAll() {
+  destroyCharts();
+  const s = SEASONS[currentSeason];
+
+  // KPI strip
+  const kpiData = [
+    { label:'Peak ILI %', val: s.kpi.peak, cls:'red' },
+    { label:'Season Length', val: s.kpi.weeks, cls:'' },
+    { label:'Hospitalization Rate', val: s.kpi.hosp, cls:'blue' },
+    { label:'Est. Deaths', val: s.kpi.deaths, cls:'' },
+    { label:'Dominant Strain', val: s.kpi.dominant, cls:'gold' },
+    { label:'Severity', val: s.kpi.severity, cls: s.kpi.severity==='Minimal'?'green':s.kpi.severity==='Moderate'||s.kpi.severity==='Moderate-High'?'gold':'red' },
+  ];
+  document.getElementById('kpiStrip').innerHTML = kpiData.map(k =>
+    `<div class="kpi-item"><div class="kpi-label">${k.label}</div><div class="kpi-val ${k.cls}">${k.val}</div></div>`
+  ).join('');
+
+  // Trend
+  const metricData = { ili: s.ili, hosp: s.hosp, deaths: s.deaths };
+  const trendLabels = { ili:'ILI Activity', hosp:'Hospitalization Rate', deaths:'P&I Deaths %' };
+  document.getElementById('trendTitle').textContent = trendLabels[currentMetric] + ' — ' + s.label + ' Season';
+
+  charts.trend = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: s.weeks,
+      datasets: [{
+        label: trendLabels[currentMetric],
+        data: metricData[currentMetric],
+        borderColor: CHART_COLORS.primary,
+        backgroundColor: CHART_COLORS.bg,
+        fill: true, tension: 0.4, pointRadius: 2, pointBackgroundColor: CHART_COLORS.primary,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: CHART_COLORS.tickColor, font: { family: CHART_COLORS.font, size: 9 }, maxRotation: 0, maxTicksLimit: 10 }, grid: { color: CHART_COLORS.gridColor } },
+        y: { ticks: { color: CHART_COLORS.tickColor, font: { family: CHART_COLORS.font, size: 10 } }, grid: { color: CHART_COLORS.gridColor } }
+      }
+    }
+  });
+
+  // Age hospitalization
+  const ageLabels = ['0–4', '5–17', '18–49', '50–64', '65–74', '75–84', '85+'];
+  charts.age = new Chart(document.getElementById('ageChart'), {
+    type: 'bar',
+    data: {
+      labels: ageLabels,
+      datasets: [{ label: 'Hosp Rate/100k', data: s.ageHosp, backgroundColor: [
+        'rgba(45,106,79,0.7)','rgba(45,106,79,0.6)','rgba(233,180,76,0.7)',
+        'rgba(233,180,76,0.8)','rgba(200,65,10,0.6)','rgba(200,65,10,0.75)','rgba(200,65,10,0.9)'
+      ], borderRadius: 2 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: CHART_COLORS.tickColor, font: { family: CHART_COLORS.font, size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: CHART_COLORS.tickColor, font: { family: CHART_COLORS.font, size: 10 } }, grid: { color: CHART_COLORS.gridColor } }
+      }
+    }
+  });
+
+  // Strain donut
+  const strainKeys = Object.keys(s.strains);
+  const strainVals = Object.values(s.strains);
+  charts.strain = new Chart(document.getElementById('strainChart'), {
+    type: 'doughnut',
+    data: {
+      labels: strainKeys,
+      datasets: [{ data: strainVals,
+        backgroundColor: ['rgba(200,65,10,0.85)','rgba(29,78,143,0.85)','rgba(45,106,79,0.85)','rgba(233,180,76,0.85)'],
+        borderColor: '#ffffff', borderWidth: 2 }]
+    },
+    options: {
+      responsive: true, cutout: '60%',
+      plugins: { legend: { position: 'bottom', labels: { color: CHART_COLORS.tickColor, font: { family: CHART_COLORS.font, size: 10 }, padding: 10, boxWidth: 12 } } }
+    }
+  });
+
+  // Peak ILI comparison
+  const peakData = HISTORY.map(h => h.peak);
+  const peakColors = HISTORY.map((h,i) =>
+    h.season === SEASONS[currentSeason].label ? 'rgba(200,65,10,0.9)' : 'rgba(200,65,10,0.3)'
+  );
+  charts.peak = new Chart(document.getElementById('peakChart'), {
+    type: 'bar',
+    data: {
+      labels: HISTORY.map(h => h.season.replace('20','')),
+      datasets: [{ label: 'Peak ILI %', data: peakData, backgroundColor: peakColors, borderRadius: 2 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: CHART_COLORS.tickColor, font: { family: CHART_COLORS.font, size: 9 }, maxRotation: 45 }, grid: { display: false } },
+        y: { ticks: { color: CHART_COLORS.tickColor, font: { family: CHART_COLORS.font, size: 10 }, callback: v => v+'%' }, grid: { color: CHART_COLORS.gridColor } }
+      }
+    }
+  });
+
+  // Vaccination rate
+  const vaccLabels = ['6m–4yr', '5–12yr', '13–17yr', '18–49yr', '50–64yr', '65–74yr', '75+yr'];
+  charts.vacc = new Chart(document.getElementById('vaccChart'), {
+    type: 'bar',
+    data: {
+      labels: vaccLabels,
+      datasets: [{ label: 'Coverage %', data: s.vaccRate,
+        backgroundColor: 'rgba(45,106,79,0.75)', borderRadius: 2 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: CHART_COLORS.tickColor, font: { family: CHART_COLORS.font, size: 9 }, maxRotation: 45 }, grid: { display: false } },
+        y: { min: 0, max: 100, ticks: { color: CHART_COLORS.tickColor, font: { family: CHART_COLORS.font, size: 10 }, callback: v => v+'%' }, grid: { color: CHART_COLORS.gridColor } }
+      }
+    }
+  });
+
+  // State grid
+  const lvlLabels = ['Minimal','Low','Moderate','High'];
+  document.getElementById('stateGrid').innerHTML = STATE_DATA.map(st =>
+    `<div class="state-cell lvl-${st.l}" title="${st.s}: ${st.v}% ILI">
+      <span class="state-name">${st.s}</span>
+      <span class="state-val">${st.v}%</span>
+    </div>`
+  ).join('');
+
+  // History table
+  const maxPeak = Math.max(...HISTORY.map(h => h.peak));
+  document.getElementById('histTable').innerHTML = HISTORY.map(h => {
+    const bw = Math.round((h.peak / maxPeak) * 80);
+    const isCurrent = h.season === SEASONS[currentSeason].label;
+    return `<tr style="${isCurrent ? 'background:rgba(200,65,10,0.05);' : ''}">
+      <td class="season-col">${isCurrent ? '▶ ' : ''}${h.season}</td>
+      <td style="color:var(--accent);font-weight:500">${h.peak}%</td>
+      <td style="color:var(--muted)">${h.dur}</td>
+      <td style="color:var(--text);font-size:11px">${h.strain}</td>
+      <td style="color:var(--muted);font-size:11px">${h.sev}</td>
+      <td><div class="peak-bar-wrap"><div class="peak-bar" style="width:${bw}px"></div></div></td>
+    </tr>`;
+  }).join('');
+
+  // Insights
+  const insights = INSIGHTS[currentSeason] || INSIGHTS['2023-24'];
+  document.getElementById('insightList').innerHTML = insights.map(i =>
+    `<li><span class="insight-icon">${i.icon}</span><span>${i.text}</span></li>`
+  ).join('');
+}
+
+renderAll();
+</script>
+</body>
+</html>
